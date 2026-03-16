@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<title>贪吃蛇</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: #1a1a2e; color: #eee; font-family: Arial, sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
+#menu, #game { text-align: center; }
+#menu h1 { font-size: 2.5rem; color: #0f3460; text-shadow: 0 0 20px #e94560; margin-bottom: 30px; }
+#menu h1 span { color: #e94560; }
+.setting { margin: 15px 0; font-size: 1.1rem; }
+.setting label { margin-right: 10px; }
+.setting input[type=range] { width: 200px; vertical-align: middle; }
+.setting span { color: #e94560; font-weight: bold; min-width: 30px; display: inline-block; }
+button { background: #e94560; color: #fff; border: none; padding: 12px 40px; font-size: 1.1rem; border-radius: 25px; cursor: pointer; margin: 8px; transition: 0.2s; }
+button:hover { background: #c73652; transform: scale(1.05); }
+#game { display: none; }
+canvas { border: 2px solid #e94560; box-shadow: 0 0 20px #e9456055; display: block; margin: 10px auto; }
+#hud { display: flex; justify-content: space-between; align-items: center; width: 400px; margin: 0 auto 5px; font-size: 1rem; }
+#hud span { color: #e94560; font-weight: bold; }
+#overlay { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: #1a1a2ecc; padding: 30px 50px; border-radius: 15px; border: 2px solid #e94560; display: none; }
+#overlay h2 { font-size: 2rem; margin-bottom: 15px; color: #e94560; }
+#overlay p { margin-bottom: 20px; font-size: 1.1rem; }
+</style>
+</head>
+<body>
+
+<div id="menu">
+  <h1>贪吃<span>蛇</span></h1>
+  <div class="setting">
+    <label>最大长度限制：</label>
+    <input type="range" id="maxLen" min="5" max="50" value="20">
+    <span id="maxLenVal">20</span>
+  </div>
+  <div class="setting">
+    <label>游戏速度：</label>
+    <input type="range" id="speed" min="1" max="5" value="3">
+    <span id="speedVal">3</span>
+  </div>
+  <br>
+  <button onclick="startGame()">开始游戏</button>
+</div>
+
+<div id="game">
+  <div id="hud">
+    <div>得分：<span id="score">0</span></div>
+    <div>长度：<span id="lenDisplay">1</span> / <span id="maxLenDisplay">20</span></div>
+    <button onclick="goHome()" style="padding:5px 15px;font-size:0.85rem">返回主页</button>
+  </div>
+  <div style="position:relative;display:inline-block">
+    <canvas id="c" width="400" height="400"></canvas>
+    <div id="overlay">
+      <h2 id="overlayTitle"></h2>
+      <p id="overlayMsg"></p>
+      <button onclick="startGame()">再来一局</button>
+      <button onclick="goHome()">返回主页</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const GRID = 20, CELL = 400 / GRID;
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+let snake, dir, nextDir, food, score, maxLen, timer, running;
+
+document.getElementById('maxLen').oninput = function() {
+  document.getElementById('maxLenVal').textContent = this.value;
+};
+document.getElementById('speed').oninput = function() {
+  document.getElementById('speedVal').textContent = this.value;
+};
+
+function startGame() {
+  maxLen = +document.getElementById('maxLen').value;
+  const spd = +document.getElementById('speed').value;
+  document.getElementById('maxLenDisplay').textContent = maxLen;
+  document.getElementById('menu').style.display = 'none';
+  document.getElementById('game').style.display = 'block';
+  document.getElementById('overlay').style.display = 'none';
+
+  snake = [{x:10, y:10}];
+  dir = {x:1, y:0};
+  nextDir = {x:1, y:0};
+  score = 0;
+  running = true;
+  placeFood();
+  updateHUD();
+
+  clearInterval(timer);
+  timer = setInterval(tick, 250 - spd * 40);
+}
+
+function goHome() {
+  clearInterval(timer);
+  running = false;
+  document.getElementById('game').style.display = 'none';
+  document.getElementById('menu').style.display = 'block';
+}
+
+function placeFood() {
+  let pos;
+  do {
+    pos = {x: Math.floor(Math.random()*GRID), y: Math.floor(Math.random()*GRID)};
+  } while (snake.some(s => s.x===pos.x && s.y===pos.y));
+  food = pos;
+}
+
+function tick() {
+  dir = nextDir;
+  const head = {x: snake[0].x + dir.x, y: snake[0].y + dir.y};
+
+  if (head.x < 0 || head.x >= GRID || head.y < 0 || head.y >= GRID ||
+      snake.some(s => s.x===head.x && s.y===head.y)) {
+    return endGame('游戏结束', `最终得分：${score}`);
+  }
+
+  snake.unshift(head);
+
+  if (head.x === food.x && head.y === food.y) {
+    score++;
+    if (snake.length >= maxLen) {
+      return endGame('恭喜通关！', `达到最大长度 ${maxLen}，得分：${score}`);
+    }
+    placeFood();
+  } else {
+    snake.pop();
+  }
+
+  updateHUD();
+  draw();
+}
+
+function endGame(title, msg) {
+  clearInterval(timer);
+  running = false;
+  document.getElementById('overlayTitle').textContent = title;
+  document.getElementById('overlayMsg').textContent = msg;
+  document.getElementById('overlay').style.display = 'block';
+  draw();
+}
+
+function updateHUD() {
+  document.getElementById('score').textContent = score;
+  document.getElementById('lenDisplay').textContent = snake.length;
+}
+
+function draw() {
+  ctx.fillStyle = '#0d0d1a';
+  ctx.fillRect(0, 0, 400, 400);
+
+  // grid
+  ctx.strokeStyle = '#ffffff08';
+  for (let i = 0; i <= GRID; i++) {
+    ctx.beginPath(); ctx.moveTo(i*CELL, 0); ctx.lineTo(i*CELL, 400); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(0, i*CELL); ctx.lineTo(400, i*CELL); ctx.stroke();
+  }
+
+  // food
+  ctx.fillStyle = '#e94560';
+  ctx.shadowColor = '#e94560';
+  ctx.shadowBlur = 10;
+  ctx.fillRect(food.x*CELL+2, food.y*CELL+2, CELL-4, CELL-4);
+  ctx.shadowBlur = 0;
+
+  // snake
+  snake.forEach((s, i) => {
+    const t = 1 - i / snake.length;
+    ctx.fillStyle = `hsl(${140 + i*2}, 80%, ${30 + t*30}%)`;
+    ctx.fillRect(s.x*CELL+1, s.y*CELL+1, CELL-2, CELL-2);
+  });
+
+  // head highlight
+  ctx.fillStyle = '#afffaf';
+  ctx.fillRect(snake[0].x*CELL+4, snake[0].y*CELL+4, CELL-8, CELL-8);
+}
+
+document.addEventListener('keydown', e => {
+  const map = {
+    ArrowUp:    {x:0,y:-1}, ArrowDown:  {x:0,y:1},
+    ArrowLeft:  {x:-1,y:0}, ArrowRight: {x:1,y:0}
+  };
+  const d = map[e.key];
+  if (d && !(d.x === -dir.x && d.y === -dir.y)) {
+    nextDir = d;
+    e.preventDefault();
+  }
+});
+</script>
+</body>
+</html>
